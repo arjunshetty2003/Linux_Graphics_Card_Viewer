@@ -1,1 +1,1 @@
-savedcmd_/home/cselab3/Desktop/LKP/gpu_viewer_v3/kernel/Module.symvers :=  scripts/mod/modpost -M -m -a      -o /home/cselab3/Desktop/LKP/gpu_viewer_v3/kernel/Module.symvers -T /home/cselab3/Desktop/LKP/gpu_viewer_v3/kernel/modules.order -i Module.symvers -e 
+savedcmd_/home/parallels/Linux_Graphics_Card_Viewer/gpu_viewer_v3/kernel/Module.symvers :=  scripts/mod/modpost -M -m -a      -o /home/parallels/Linux_Graphics_Card_Viewer/gpu_viewer_v3/kernel/Module.symvers -T /home/parallels/Linux_Graphics_Card_Viewer/gpu_viewer_v3/kernel/modules.order -i Module.symvers -e 

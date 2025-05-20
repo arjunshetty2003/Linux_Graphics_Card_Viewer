@@ -1,121 +1,135 @@
-#include <linux/module.h>    // Core header for loading LKMs into the kernel
-#include <linux/kernel.h>    // Contains types, macros, functions for the kernel
-#include <linux/init.h>      // Macros to mark up functions e.g. __init __exit
-#include <linux/netlink.h>   // For netlink sockets
-#include <linux/skbuff.h>    // For socket buffer (sk_buff) structures
-#include <net/sock.h>        // For struct sock, netlink_kernel_create, sock_release
-#include <linux/pci.h>       // For PCI device iteration and access
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/init.h>
+#include <linux/netlink.h>
+#include <linux/skbuff.h>
+#include <net/sock.h>
+#include <linux/pci.h>
 
 // Include the shared header file.
-// The Makefile should specify the correct include path (e.g., -I../include).
-// This file defines NETLINK_USER, MAX_PAYLOAD, and struct gpu_info_packet.
-#include "gpu_proto.h"
+// Ensure your Makefile for this kernel module has the correct -I flag
+// to find this header, e.g., EXTRA_CFLAGS += -I$(PWD)/../include
+#include "gpu_proto.h" // This now refers to the gpu_proto_h_multigpu_final version
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Your Name / LKP Student");
-MODULE_DESCRIPTION("GPU Information Netlink Kernel Module (Real Data Attempt)");
+MODULE_AUTHOR("LKP Project Contributor");
+MODULE_DESCRIPTION("GPU Information Netlink Kernel Module (Multiple GPUs, Real PCI Data)");
 
-// Static variable to hold the netlink socket structure
-static struct sock *nl_sk = NULL;
+static struct sock *nl_sk = NULL; // Netlink socket structure
 
-// Function to handle messages received from user-space via netlink
+// Callback function to handle messages received from user-space
 static void nl_recv_msg(struct sk_buff *skb) {
-    struct nlmsghdr *nlh_recv;         // Netlink message header for received message
-    struct nlmsghdr *nlh_send;         // Netlink message header for sending message
-    struct sk_buff *skb_out;           // Socket buffer for outgoing message
-    struct gpu_info_packet *gpu_data_payload; // Payload structure
-    int pid;                           // Process ID of the sending user-space application
-    int res;                           // Result of netlink send operation
-    int msg_size;                      // Size of the payload
+    struct nlmsghdr *nlh_recv;
+    struct nlmsghdr *nlh_send;
+    struct sk_buff *skb_out;
+    struct all_gpus_info_packet *all_gpus_payload; // Payload for multiple GPUs
+    int pid;
+    int res;
+    int msg_size_payload;
 
-    // PCI related variables
-    struct pci_dev *pdev = NULL;
-    int found_gpu = 0;
-    unsigned short vendor_id = 0, device_id = 0;
-    unsigned char bus_num = 0, dev_num = 0, func_num = 0;
+    struct pci_dev *pdev = NULL; // PCI device iterator
+    int gpus_collected = 0;      // Counter for GPUs found
+    unsigned char pci_base_class;
+    unsigned int full_pci_class; // For debugging
 
+    printk(KERN_INFO "GPU_LKM_MULTI_DEBUG: Netlink message received. Processing...\n");
 
-    printk(KERN_INFO "GPU_LKM_REAL: Entering %s\n", __FUNCTION__);
-
-    // 1. Receive and Process the Incoming Message
+    // 1. Receive and Validate the Incoming Message from User Space
     nlh_recv = (struct nlmsghdr *)skb->data;
     if (nlh_recv->nlmsg_len < NLMSG_HDRLEN || skb->len < nlh_recv->nlmsg_len) {
-        printk(KERN_ERR "GPU_LKM_REAL: Corrupted netlink message received (length: %u, skb_len: %u).\n", nlh_recv->nlmsg_len, skb->len);
+        printk(KERN_ERR "GPU_LKM_MULTI_DEBUG: Corrupted netlink message received.\n");
         return;
     }
-    pid = nlh_recv->nlmsg_pid; /* PID of sending process */
-    printk(KERN_INFO "GPU_LKM_REAL: Message received from PID %d.\n", pid);
+    pid = nlh_recv->nlmsg_pid; // PID of the sending user-space process
+    printk(KERN_INFO "GPU_LKM_MULTI_DEBUG: Message received from user-space PID %d.\n", pid);
 
+    // 2. Prepare the Payload Structure for Sending Back
+    msg_size_payload = sizeof(struct all_gpus_info_packet);
 
-    // 2. Find GPU Information using PCI iteration
-    printk(KERN_INFO "GPU_LKM_REAL: Searching for VGA compatible PCI devices...\n");
-    // Iterate over all PCI devices
-    // pci_get_device(VENDOR_ANY, DEVICE_ANY, from)
-    // For VGA compatible: pci_get_class(PCI_CLASS_DISPLAY_VGA << 8, from)
+    skb_out = nlmsg_new(msg_size_payload, GFP_KERNEL); // Allocate skb
+    if (!skb_out) {
+        printk(KERN_ERR "GPU_LKM_MULTI_DEBUG: Failed to allocate new skb for outgoing message.\n");
+        return;
+    }
+
+    nlh_send = nlmsg_put(skb_out, 0, nlh_recv->nlmsg_seq, NLMSG_DONE, msg_size_payload, 0);
+    if (!nlh_send) {
+        printk(KERN_ERR "GPU_LKM_MULTI_DEBUG: nlmsg_put failed for outgoing message.\n");
+        kfree_skb(skb_out); // Free allocated skb
+        return;
+    }
+    NETLINK_CB(skb_out).dst_group = 0; // Unicast
+    all_gpus_payload = (struct all_gpus_info_packet *)NLMSG_DATA(nlh_send);
+    memset(all_gpus_payload, 0, sizeof(struct all_gpus_info_packet)); // Important: Zero out payload
+
+    // 3. Find GPU Information by Iterating Through PCI Devices
+    printk(KERN_INFO "GPU_LKM_MULTI_DEBUG: Searching for Display Controller PCI devices...\n");
+
     for_each_pci_dev(pdev) {
-        // Check if the device is a VGA compatible controller or 3D controller
-        if (pdev->class == (PCI_CLASS_DISPLAY_VGA << 8) || pdev->class == (PCI_CLASS_DISPLAY_3D << 8)) {
-            printk(KERN_INFO "GPU_LKM_REAL: Found a VGA/3D compatible device: %s\n", pci_name(pdev));
-            vendor_id = pdev->vendor;
-            device_id = pdev->device;
-            bus_num = pdev->bus->number;
-            dev_num = PCI_SLOT(pdev->devfn);   // Device (Slot) number
-            func_num = PCI_FUNC(pdev->devfn);  // Function number
+        full_pci_class = pdev->class; // Get the full 24-bit class code
+        pci_base_class = full_pci_class >> 16; // Get the base class (top byte of the 3-byte class code)
+                                               // Note: pdev->class is u32, class code is 3 bytes.
+                                               // PCI_CLASS_REVISION is the lowest byte.
+                                               // So, (pdev->class >> 8) gives base class + subclass.
+                                               // (pdev->class >> 16) gives just the base class.
+                                               // Let's use (pdev->class >> 16) for base class as per common convention.
+                                               // Or, more simply, the defined PCI_CLASS_DISPLAY_VGA etc. are already shifted.
+                                               // The original pdev->class >> 8 was likely trying to get base+subclass.
+                                               // Let's stick to the original pdev->class >> 8 for matching against PCI_CLASS_DISPLAY_*,
+                                               // as those constants are defined as (BaseClass << 8 | SubClass).
+                                               // For debugging, let's print the full class.
 
-            found_gpu = 1;
-            // pci_dev_put(pdev); // Decrement reference count if we got it with pci_get_device or similar
-            // for_each_pci_dev does not increment the refcount, so no put needed here for 'pdev' from the loop itself.
-            break; // Found one, use this for the demo
+        pci_base_class = pdev->class >> 8; // Original logic for matching
+
+        // --- ADDED DEBUG PRINT ---
+        printk(KERN_INFO "GPU_LKM_MULTI_DEBUG: Found PCI Device: V=0x%04x D=0x%04x Class=0x%06x (BaseClass for check=0x%02X) Name: %s\n",
+               pdev->vendor, pdev->device, full_pci_class, pci_base_class, pci_name(pdev));
+        // --- END ADDED DEBUG PRINT ---
+
+
+        if (gpus_collected >= MAX_GPUS_SUPPORTED) { // MAX_GPUS_SUPPORTED from gpu_proto.h
+            printk(KERN_INFO "GPU_LKM_MULTI_DEBUG: Reached MAX_GPUS_SUPPORTED limit (%d).\n", MAX_GPUS_SUPPORTED);
+            break;
+        }
+
+        // Check for various display controller types
+        // The PCI_CLASS_DISPLAY_* constants are typically (BaseClass << 8 | SubClass)
+        // So pdev->class >> 8 gives (BaseClass | SubClass >> 8) if class is 3 bytes.
+        // Let's assume pdev->class holds the full 24-bit class code (class_device in lspci)
+        // PCI_CLASS_DISPLAY_VGA is 0x0300.
+        // If pdev->class is 0x030000, then pdev->class >> 8 is 0x0300. This is correct.
+
+        if ((pdev->class >> 8) == PCI_CLASS_DISPLAY_VGA ||      // e.g., 0x0300
+            (pdev->class >> 8) == PCI_CLASS_DISPLAY_XGA ||      // e.g., 0x0301
+            (pdev->class >> 8) == PCI_CLASS_DISPLAY_3D  ||      // e.g., 0x0302
+            (pdev->class >> 8) == PCI_CLASS_DISPLAY_OTHER) {    // e.g., 0x0380
+            
+            printk(KERN_INFO "GPU_LKM_MULTI_DEBUG: Matched as Display Controller (Class for check: 0x%02X): %s\n", (pdev->class >> 8), pci_name(pdev));
+            
+            all_gpus_payload->gpus[gpus_collected].vendor_id = pdev->vendor;
+            all_gpus_payload->gpus[gpus_collected].device_id = pdev->device;
+            all_gpus_payload->gpus[gpus_collected].bus = pdev->bus->number;
+            all_gpus_payload->gpus[gpus_collected].slot = PCI_SLOT(pdev->devfn);
+            all_gpus_payload->gpus[gpus_collected].function = PCI_FUNC(pdev->devfn);
+            all_gpus_payload->gpus[gpus_collected].is_valid = 1; // Mark this GPU entry as valid
+            
+            gpus_collected++;
         }
     }
+    all_gpus_payload->num_gpus_found = gpus_collected;
 
-    if (!found_gpu) {
-        printk(KERN_WARNING "GPU_LKM_REAL: No VGA compatible PCI device found.\n");
-        // Send a response indicating no GPU found or send dummy data
-        // For this example, we'll send 0s if no GPU is found
-        vendor_id = 0x0000;
-        device_id = 0x0000;
-        bus_num = 0;
-        dev_num = 0;
-        func_num = 0;
+    if (gpus_collected == 0) {
+        printk(KERN_WARNING "GPU_LKM_MULTI_DEBUG: No Display Controller PCI device matched the class checks.\n");
     }
 
-    // 3. Prepare the GPU Information Packet to Send Back
-    msg_size = sizeof(struct gpu_info_packet);
+    printk(KERN_INFO "GPU_LKM_MULTI_DEBUG: Sending info for %d GPU(s) to PID %d\n", gpus_collected, pid);
 
-    skb_out = nlmsg_new(msg_size, GFP_KERNEL);
-    if (!skb_out) {
-        printk(KERN_ERR "GPU_LKM_REAL: Failed to allocate new skb for outgoing message\n");
-        return;
-    }
-
-    nlh_send = nlmsg_put(skb_out, 0, nlh_recv->nlmsg_seq, NLMSG_DONE, msg_size, 0);
-    if (!nlh_send) {
-        printk(KERN_ERR "GPU_LKM_REAL: nlmsg_put failed for outgoing message\n");
-        kfree_skb(skb_out);
-        return;
-    }
-    NETLINK_CB(skb_out).dst_group = 0;
-
-    gpu_data_payload = (struct gpu_info_packet *)NLMSG_DATA(nlh_send);
-
-    // Populate with found (or default) data
-    gpu_data_payload->vendor_id = vendor_id;
-    gpu_data_payload->device_id = device_id;
-    gpu_data_payload->bus = bus_num;
-    gpu_data_payload->slot = dev_num;
-    gpu_data_payload->function = func_num;
-
-    printk(KERN_INFO "GPU_LKM_REAL: Sending GPU info: V=0x%04x D=0x%04x B=%02u S=%02u F=%02u to PID %d\n",
-           gpu_data_payload->vendor_id, gpu_data_payload->device_id, gpu_data_payload->bus,
-           gpu_data_payload->slot, gpu_data_payload->function, pid);
-
-    // 4. Send the Message Back to User-Space
+    // 4. Send the Message Back to User Space
     res = nlmsg_unicast(nl_sk, skb_out, pid);
     if (res < 0) {
-        printk(KERN_INFO "GPU_LKM_REAL: Error while sending unicast message to PID %d: error %d\n", pid, res);
+        printk(KERN_INFO "GPU_LKM_MULTI_DEBUG: Error sending unicast message to PID %d: error code %d\n", pid, res);
     } else {
-        printk(KERN_INFO "GPU_LKM_REAL: Successfully sent GPU info to PID %d\n", pid);
+        printk(KERN_INFO "GPU_LKM_MULTI_DEBUG: Successfully sent GPU info to user-space PID %d\n", pid);
     }
 }
 
@@ -124,27 +138,24 @@ static int __init gpu_lkm_init(void) {
     struct netlink_kernel_cfg cfg = {
         .input = nl_recv_msg,
     };
-
-    printk(KERN_INFO "GPU_LKM_REAL: Initializing Netlink GPU Module (Protocol: %d) for Real Data\n", NETLINK_USER);
-
-    nl_sk = netlink_kernel_create(&init_net, NETLINK_USER, &cfg);
+    printk(KERN_INFO "GPU_LKM_MULTI_DEBUG: Initializing Netlink GPU Module (Multi-GPU, Protocol ID: %d)\n", NETLINK_USER);
+    nl_sk = netlink_kernel_create(&init_net, NETLINK_USER, &cfg); // NETLINK_USER from gpu_proto.h
     if (!nl_sk) {
-        printk(KERN_ALERT "GPU_LKM_REAL: Error creating netlink socket. Protocol %d might be in use or invalid.\n", NETLINK_USER);
+        printk(KERN_ALERT "GPU_LKM_MULTI_DEBUG: Error creating netlink socket. Protocol %d might be in use.\n", NETLINK_USER);
         return -ENOMEM;
     }
-    printk(KERN_INFO "GPU_LKM_REAL: Netlink socket created successfully.\n");
-
+    printk(KERN_INFO "GPU_LKM_MULTI_DEBUG: Netlink socket created successfully.\n");
     return 0;
 }
 
 // Module Exit Function
 static void __exit gpu_lkm_exit(void) {
-    printk(KERN_INFO "GPU_LKM_REAL: Exiting Netlink GPU Module (Real Data)\n");
+    printk(KERN_INFO "GPU_LKM_MULTI_DEBUG: Exiting Netlink GPU Module (Multi-GPU)\n");
     if (nl_sk != NULL) {
         netlink_kernel_release(nl_sk);
         nl_sk = NULL;
     }
-    printk(KERN_INFO "GPU_LKM_REAL: Netlink socket released.\n");
+    printk(KERN_INFO "GPU_LKM_MULTI_DEBUG: Netlink socket released.\n");
 }
 
 module_init(gpu_lkm_init);

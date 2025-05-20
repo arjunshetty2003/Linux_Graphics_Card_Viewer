@@ -33,24 +33,35 @@ MODULE_INFO(retpoline, "Y");
 
 
 
-static const struct modversion_info ____versions[]
-__used __section("__versions") = {
-	{ 0x26d7d0e6, "init_net" },
-	{ 0xb3ebc7a6, "__netlink_kernel_create" },
-	{ 0x5b8239ca, "__x86_return_thunk" },
-	{ 0xf0fdf6cb, "__stack_chk_fail" },
-	{ 0xc95f8dc, "netlink_kernel_release" },
-	{ 0x1248030e, "pci_get_device" },
-	{ 0xd951dfaa, "__alloc_skb" },
-	{ 0x67956b01, "__nlmsg_put" },
-	{ 0x67ead80d, "netlink_unicast" },
-	{ 0xbc43a660, "kfree_skb_reason" },
-	{ 0xbdfb6dbb, "__fentry__" },
-	{ 0x122c3a7e, "_printk" },
-	{ 0x6ad2b3e, "module_layout" },
-};
+static const char ____versions[]
+__used __section("__versions") =
+	"\x10\x00\x00\x00\x7e\x3a\x2c\x12"
+	"_printk\0"
+	"\x14\x00\x00\x00\x33\x5b\x98\xf1"
+	"init_net\0\0\0\0"
+	"\x20\x00\x00\x00\xa1\xa5\xaa\x0c"
+	"__netlink_kernel_create\0"
+	"\x1c\x00\x00\x00\xcb\xf6\xfd\xf0"
+	"__stack_chk_fail\0\0\0\0"
+	"\x20\x00\x00\x00\xdd\xa6\x72\xb7"
+	"netlink_kernel_release\0\0"
+	"\x14\x00\x00\x00\x77\x7d\x40\xe8"
+	"__alloc_skb\0"
+	"\x14\x00\x00\x00\x53\xb3\xd6\x1b"
+	"__nlmsg_put\0"
+	"\x18\x00\x00\x00\x32\x8f\x67\x19"
+	"pci_get_device\0\0"
+	"\x18\x00\x00\x00\xa6\xe1\xdc\xd3"
+	"netlink_unicast\0"
+	"\x1c\x00\x00\x00\x4d\x70\x1a\x65"
+	"kfree_skb_reason\0\0\0\0"
+	"\x28\x00\x00\x00\xb3\x1c\xa2\x87"
+	"__ubsan_handle_out_of_bounds\0\0\0\0"
+	"\x18\x00\x00\x00\x3d\xea\xc3\x7f"
+	"module_layout\0\0\0"
+	"\x00\x00\x00\x00\x00\x00\x00\x00";
 
 MODULE_INFO(depends, "");
 
 
-MODULE_INFO(srcversion, "83639AA233B4A7316A495B3");
+MODULE_INFO(srcversion, "DBBAE457883AD962BB6DF41");
