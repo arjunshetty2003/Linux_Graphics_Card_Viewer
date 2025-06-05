@@ -1,1 +1,1 @@
-/home/parallels/Linux_Graphics_Card_Viewer/gpu_viewer_v3/kernel/gpu_viewer_lkm.o
+/home/cselab3/Linux_Graphics_Card_Viewer/gpu_viewer_v3/kernel/gpu_viewer_lkm.o
