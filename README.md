@@ -102,6 +102,34 @@ gpu-viewer
 
 🧹 8. Cleanup (Optional)
 
+
+
+
+
+
+
+
+
+
+
+
+
+# GPU Viewer Project
+
+## Build kernel module:
+sudo apt install build-essential linux-headers-$(uname -r)
+make
+sudo insmod gpu_viewer.ko
+
+## Run GUI:
+sudo apt install python3-pyqt5
+./gpu_viewer_gui.py
+
+## Build .deb:
+sudo apt install debhelper
+dpkg-buildpackage -us -uc
+sudo dpkg -i ../gpu-viewer_*.deb
+
 Unload module and remove:
 
 sudo rmmod gpu_viewer
