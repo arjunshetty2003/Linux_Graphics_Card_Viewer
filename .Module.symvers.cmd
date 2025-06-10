@@ -1,0 +1,1 @@
+savedcmd_/home/ubuntu/gpu_viewer_project/gpU-VIewer/Module.symvers :=  scripts/mod/modpost -M -m -a      -o /home/ubuntu/gpu_viewer_project/gpU-VIewer/Module.symvers -T /home/ubuntu/gpu_viewer_project/gpU-VIewer/modules.order -i Module.symvers -e 

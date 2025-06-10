@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+# Automatically added by dh_installmodules/13.14.1ubuntu5
+if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ] ; then
+	if [ -e /boot/System.map-6.11.0-17-generic ]; then
+		depmod -a -F /boot/System.map-6.11.0-17-generic 6.11.0-17-generic || true
+	fi
+fi
+# End automatically added section

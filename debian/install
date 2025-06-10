@@ -1,0 +1,4 @@
+gpu_viewer_gui.py usr/bin/gpu-viewer
+pci_ids_parser.py usr/share/gpu-viewer/
+gpu_viewer.ko lib/modules/6.11.0-17-generic/extra/
+

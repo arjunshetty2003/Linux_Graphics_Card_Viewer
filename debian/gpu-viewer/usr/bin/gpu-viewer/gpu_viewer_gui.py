@@ -1,16 +1,7 @@
 #!/usr/bin/env python3
-
 import sys, re
-
-import os
-
-# Add current script's directory to sys.path
-script_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, script_dir)
-
 from PyQt5 import QtWidgets, QtCore, QtGui
 from pci_ids_parser import load_pci_ids
-
 
 PROC_PATH = "/proc/gpu_viewer"
 REFRESH_MS = 3000
