@@ -1,5 +1,0 @@
-# Automatically added by dh_installmodules/13.14.1ubuntu5
-if [ -e /boot/System.map-6.11.0-17-generic ]; then
-	depmod -a -F /boot/System.map-6.11.0-17-generic 6.11.0-17-generic || true
-fi
-# End automatically added section

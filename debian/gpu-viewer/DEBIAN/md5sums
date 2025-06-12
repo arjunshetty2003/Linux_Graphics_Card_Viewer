@@ -1,4 +1,0 @@
-bd7e58c650dbff569ff02c0aa5572a30  lib/modules/6.11.0-17-generic/extra/gpu_viewer.ko
-d3b4b823cfff9f2e16c7979e23fa560b  usr/bin/gpu-viewer/gpu_viewer_gui.py
-a9cf6ea3a77c06a59a8931f47a24258c  usr/share/doc/gpu-viewer/changelog.Debian.gz
-a09cd461333fa38eb2ca7faa7353316c  usr/share/gpu-viewer/pci_ids_parser.py
